@@ -6,10 +6,11 @@ import android.content.res.TypedArray;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
+import android.support.annotation.NonNull;
 import android.support.v4.view.PagerAdapter;
-import android.support.v4.view.ViewCompat;
 import android.support.v4.view.ViewPager;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.AnimationUtils;
@@ -22,23 +23,19 @@ import static android.support.v4.view.ViewPager.OnPageChangeListener;
 import static android.support.v4.view.ViewPager.PageTransformer;
 import static android.support.v4.view.ViewPager.VISIBLE;
 import static android.view.View.OVER_SCROLL_NEVER;
-import static com.gigamole.infinitecycleviewpager.InfiniteCyclePagerAdapter.OnNotifyDataSetChangedListener;
 
-/**
- * Created by GIGAMOLE on 7/27/16.
- */
-@SuppressWarnings("unused")
-class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
+@SuppressWarnings({"unused", "WeakerAccess"})
+final class InfiniteCycleManager implements InfiniteCyclePagerAdapter.OnNotifyDataSetChangedListener {
 
     // InfiniteCycleManager constants
     private final static int MIN_CYCLE_COUNT = 3;
     private final static int MIN_POINTER_COUNT = 1;
 
     // Default ViewPager constants and flags
-    protected final static int DEFAULT_OFFSCREEN_PAGE_LIMIT = 2;
-    protected final static int DEFAULT_PAGE_MARGIN = 0;
-    protected final static boolean DEFAULT_DISABLE_FLAG = false;
-    protected final static boolean DEFAULT_ENABLE_FLAG = true;
+    final static int DEFAULT_OFFSCREEN_PAGE_LIMIT = 2;
+    final static int DEFAULT_PAGE_MARGIN = 0;
+    final static boolean DEFAULT_DISABLE_FLAG = false;
+    final static boolean DEFAULT_ENABLE_FLAG = true;
 
     // Default attributes constants
     private final static float DEFAULT_MIN_SCALE = 0.55F;
@@ -51,8 +48,7 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
     private Context mContext;
 
     // Infinite ViewPager and adapter
-    private ViewPageable mViewPageable;
-    private View mCastViewPageable;
+    private InfiniteCycleViewPager mViewPager;
     private InfiniteCyclePagerAdapter mInfiniteCyclePagerAdapter;
 
     // Inner and outer state of scrolling
@@ -106,8 +102,6 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
 
     // Use medium scale or just from max to min
     private boolean mIsMediumScaled = false;
-    // Detect is vertical orientation
-    private boolean mIsVertical;
 
     // Scroll duration of snapping
     private int mScrollDuration;
@@ -125,90 +119,69 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
         @Override
         public void run() {
             if (!mIsAutoScroll) return;
-            mViewPageable.setCurrentItem(getRealItem() + (mIsAutoScrollPositive ? 1 : -1));
+            mViewPager.setCurrentItem(getRealItem() + (mIsAutoScrollPositive ? 1 : -1));
             mAutoScrollHandler.postDelayed(this, mPageDuration);
         }
     };
 
-    public InfiniteCycleManager(
+    InfiniteCycleManager(
             final Context context,
-            final ViewPageable viewPageable,
-            final AttributeSet attributeSet
-    ) {
+            final InfiniteCycleViewPager viewPager,
+            final AttributeSet attributeSet) {
         mContext = context;
-        mIsVertical = viewPageable instanceof VerticalViewPager;
-
-        mViewPageable = viewPageable;
-        mCastViewPageable = (View) viewPageable;
+        mViewPager = viewPager;
 
         // Set default InfiniteViewPager
-        mViewPageable.setPageTransformer(false, getInfinityCyclePageTransformer());
-        mViewPageable.addOnPageChangeListener(mInfinityCyclePageChangeListener);
-        mViewPageable.setClipChildren(DEFAULT_DISABLE_FLAG);
-        mViewPageable.setDrawingCacheEnabled(DEFAULT_DISABLE_FLAG);
-        mViewPageable.setWillNotCacheDrawing(DEFAULT_ENABLE_FLAG);
-        mViewPageable.setPageMargin(DEFAULT_PAGE_MARGIN);
-        mViewPageable.setOffscreenPageLimit(DEFAULT_OFFSCREEN_PAGE_LIMIT);
-        mViewPageable.setOverScrollMode(OVER_SCROLL_NEVER);
+        mViewPager.setPageTransformer(false, getInfinityCyclePageTransformer());
+        mViewPager.addOnPageChangeListener(mInfinityCyclePageChangeListener);
+        mViewPager.setClipChildren(DEFAULT_DISABLE_FLAG);
+        mViewPager.setDrawingCacheEnabled(DEFAULT_DISABLE_FLAG);
+        mViewPager.setWillNotCacheDrawing(DEFAULT_ENABLE_FLAG);
+        mViewPager.setPageMargin(DEFAULT_PAGE_MARGIN);
+        mViewPager.setOffscreenPageLimit(DEFAULT_OFFSCREEN_PAGE_LIMIT);
+        mViewPager.setOverScrollMode(OVER_SCROLL_NEVER);
 
         // Reset scroller and process attribute set
         resetScroller();
         processAttributeSet(attributeSet);
     }
 
-    public void processAttributeSet(final AttributeSet attributeSet) {
+    private void processAttributeSet(final AttributeSet attributeSet) {
         if (attributeSet == null) return;
-        final TypedArray typedArray = mContext.obtainStyledAttributes(
-                attributeSet, mIsVertical ? R.styleable.VerticalInfiniteCycleViewPager :
-                        R.styleable.HorizontalInfiniteCycleViewPager
-        );
+        final TypedArray typedArray = mContext.obtainStyledAttributes(attributeSet, R.styleable.InfiniteCycleViewPager);
         try {
             setMinPageScaleOffset(
-                    typedArray.getDimension(
-                            mIsVertical ? R.styleable.VerticalInfiniteCycleViewPager_icvp_min_page_scale_offset :
-                                    R.styleable.HorizontalInfiniteCycleViewPager_icvp_min_page_scale_offset,
+                    typedArray.getDimension(R.styleable.InfiniteCycleViewPager_min_page_scale_offset,
                             DEFAULT_MIN_PAGE_SCALE_OFFSET
                     )
             );
             setCenterPageScaleOffset(
-                    typedArray.getDimension(
-                            mIsVertical ? R.styleable.VerticalInfiniteCycleViewPager_icvp_center_page_scale_offset :
-                                    R.styleable.HorizontalInfiniteCycleViewPager_icvp_center_page_scale_offset,
+                    typedArray.getDimension(R.styleable.InfiniteCycleViewPager_center_page_scale_offset,
                             DEFAULT_CENTER_PAGE_SCALE_OFFSET
                     )
             );
             setMinPageScale(
-                    typedArray.getFloat(
-                            mIsVertical ? R.styleable.VerticalInfiniteCycleViewPager_icvp_min_page_scale :
-                                    R.styleable.HorizontalInfiniteCycleViewPager_icvp_min_page_scale,
+                    typedArray.getFloat(R.styleable.InfiniteCycleViewPager_min_page_scale,
                             DEFAULT_MIN_SCALE
                     )
             );
             setMaxPageScale(
-                    typedArray.getFloat(
-                            mIsVertical ? R.styleable.VerticalInfiniteCycleViewPager_icvp_max_page_scale :
-                                    R.styleable.HorizontalInfiniteCycleViewPager_icvp_max_page_scale,
+                    typedArray.getFloat(R.styleable.InfiniteCycleViewPager_max_page_scale,
                             DEFAULT_MAX_SCALE
                     )
             );
             setMediumScaled(
-                    typedArray.getBoolean(
-                            mIsVertical ? R.styleable.VerticalInfiniteCycleViewPager_icvp_medium_scaled :
-                                    R.styleable.HorizontalInfiniteCycleViewPager_icvp_medium_scaled,
+                    typedArray.getBoolean(R.styleable.InfiniteCycleViewPager_medium_scaled,
                             DEFAULT_IS_MEDIUM_SCALED
                     )
             );
             setScrollDuration(
-                    typedArray.getInteger(
-                            mIsVertical ? R.styleable.VerticalInfiniteCycleViewPager_icvp_scroll_duration :
-                                    R.styleable.HorizontalInfiniteCycleViewPager_icvp_scroll_duration,
+                    typedArray.getInteger(R.styleable.InfiniteCycleViewPager_scroll_duration,
                             DEFAULT_SCROLL_DURATION
                     )
             );
             setPageDuration(
-                    typedArray.getInteger(
-                            mIsVertical ? R.styleable.VerticalInfiniteCycleViewPager_icvp_page_duration :
-                                    R.styleable.HorizontalInfiniteCycleViewPager_icvp_page_duration,
+                    typedArray.getInteger(R.styleable.InfiniteCycleViewPager_page_duration,
                             DEFAULT_SCROLL_DURATION
                     )
             );
@@ -216,14 +189,10 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
             // Retrieve interpolator
             Interpolator interpolator = null;
             try {
-                final int interpolatorId = typedArray.getResourceId(
-                        mIsVertical ? R.styleable.VerticalInfiniteCycleViewPager_icvp_interpolator :
-                                R.styleable.HorizontalInfiniteCycleViewPager_icvp_interpolator, 0
-                );
+                int interpolatorId = typedArray.getResourceId(R.styleable.InfiniteCycleViewPager_interpolator, 0);
                 interpolator = interpolatorId == 0 ? null :
                         AnimationUtils.loadInterpolator(mContext, interpolatorId);
             } catch (Resources.NotFoundException exception) {
-                interpolator = null;
                 exception.printStackTrace();
             } finally {
                 setInterpolator(interpolator);
@@ -302,10 +271,6 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
         resetScroller();
     }
 
-    public boolean isVertical() {
-        return mIsVertical;
-    }
-
     public int getState() {
         return mState;
     }
@@ -328,7 +293,7 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
         return mInfiniteCyclePagerAdapter;
     }
 
-    public PagerAdapter setAdapter(final PagerAdapter adapter) {
+    PagerAdapter setAdapter(final PagerAdapter adapter) {
         // If adapter count bigger then 2 need to set InfiniteCyclePagerAdapter
         if (adapter != null && adapter.getCount() >= MIN_CYCLE_COUNT) {
             mItemCount = adapter.getCount();
@@ -346,10 +311,10 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
 
     // We are disable multitouch on ViewPager and settling scroll, also we disable outside drag
     public boolean onTouchEvent(final MotionEvent event) {
-        if (mViewPageable.getAdapter() == null || mViewPageable.getAdapter().getCount() == 0)
+        if (mViewPager.getAdapter() == null || mViewPager.getAdapter().getCount() == 0)
             return false;
-        if (mIsAutoScroll || mIsInitialItem || mViewPageable.isFakeDragging()) return false;
-        if (event.getPointerCount() > MIN_POINTER_COUNT || !mViewPageable.hasWindowFocus())
+        if (mIsAutoScroll || mIsInitialItem || mViewPager.isFakeDragging()) return false;
+        if (event.getPointerCount() > MIN_POINTER_COUNT || !mViewPager.hasWindowFocus())
             event.setAction(MotionEvent.ACTION_UP);
         checkHitRect(event);
         return true;
@@ -369,46 +334,48 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
     public int setCurrentItem(final int item) {
         mIsInitialItem = true;
 
-        if (mViewPageable.getAdapter() == null ||
-                mViewPageable.getAdapter().getCount() < MIN_CYCLE_COUNT) return item;
+        if (mViewPager.getAdapter() == null ||
+                mViewPager.getAdapter().getCount() < MIN_CYCLE_COUNT) return item;
 
-        final int count = mViewPageable.getAdapter().getCount();
+        final int count = mViewPager.getAdapter().getCount();
         if (mIsAdapterInitialPosition) {
             mIsAdapterInitialPosition = false;
             return ((mInfiniteCyclePagerAdapter.getCount() / 2) / count) * count;
-        } else return mViewPageable.getCurrentItem() + Math.min(count, item) - getRealItem();
+        } else return mViewPager.getCurrentItem() + Math.min(count, item) - getRealItem();
     }
 
     // Need to get current position of original adapter. We cant override getCurrentItem() method,
     // because ViewPager must have original item count relative to virtual adapter count
     public int getRealItem() {
-        if (mViewPageable.getAdapter() == null ||
-                mViewPageable.getAdapter().getCount() < MIN_CYCLE_COUNT)
-            return mViewPageable.getCurrentItem();
-        return mInfiniteCyclePagerAdapter.getVirtualPosition(mViewPageable.getCurrentItem());
+        if (mViewPager.getAdapter() == null ||
+                mViewPager.getAdapter().getCount() < MIN_CYCLE_COUNT)
+            return mViewPager.getCurrentItem();
+        return mInfiniteCyclePagerAdapter.getVirtualPosition(mViewPager.getCurrentItem());
     }
 
     // Now you can call notify data on ViewPager nor adapter to invalidate all of positions
     public void notifyDataSetChanged() {
-        if (mInfiniteCyclePagerAdapter == null) {
-            mViewPageable.getAdapter().notifyDataSetChanged();
+        if (mInfiniteCyclePagerAdapter == null && mViewPager.getAdapter() != null) {
+            mViewPager.getAdapter().notifyDataSetChanged();
             mIsDataSetChanged = true;
-        } else mInfiniteCyclePagerAdapter.notifyDataSetChanged();
+        } else if (mInfiniteCyclePagerAdapter != null) {
+            mInfiniteCyclePagerAdapter.notifyDataSetChanged();
+        }
         postInvalidateTransformer();
     }
 
     // If you need to update transformer call this method, which is trigger fake scroll
     public void invalidateTransformer() {
-        if (mViewPageable.getAdapter() == null || mViewPageable.getAdapter().getCount() == 0 ||
-                mViewPageable.getChildCount() == 0) return;
-        if (mViewPageable.beginFakeDrag()) {
-            mViewPageable.fakeDragBy(0.0F);
-            mViewPageable.endFakeDrag();
+        if (mViewPager.getAdapter() == null || mViewPager.getAdapter().getCount() == 0 ||
+                mViewPager.getChildCount() == 0) return;
+        if (mViewPager.beginFakeDrag()) {
+            mViewPager.fakeDragBy(0.0F);
+            mViewPager.endFakeDrag();
         }
     }
 
     public void postInvalidateTransformer() {
-        mViewPageable.post(new Runnable() {
+        mViewPager.post(new Runnable() {
             @Override
             public void run() {
                 invalidateTransformer();
@@ -427,8 +394,8 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
     // Disable hardware layer when idle
     private void disableHardwareLayers() {
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT) return;
-        for (int i = 0; i < mViewPageable.getChildCount(); i++) {
-            final View child = mViewPageable.getChildAt(i);
+        for (int i = 0; i < mViewPager.getChildCount(); i++) {
+            final View child = mViewPager.getChildAt(i);
             if (child.getLayerType() != View.LAYER_TYPE_NONE)
                 child.setLayerType(View.LAYER_TYPE_NONE, null);
         }
@@ -443,26 +410,25 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
     private void checkHitRect(final MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             mHitRect.set(
-                    mCastViewPageable.getLeft(), mCastViewPageable.getTop(),
-                    mCastViewPageable.getRight(), mCastViewPageable.getBottom()
+                    mViewPager.getLeft(), mViewPager.getTop(),
+                    mViewPager.getRight(), mViewPager.getBottom()
             );
         } else if (event.getAction() == MotionEvent.ACTION_MOVE && !mHitRect.contains(
-                mCastViewPageable.getLeft() + (int) event.getX(),
-                mCastViewPageable.getTop() + (int) event.getY()
+                mViewPager.getLeft() + (int) event.getX(),
+                mViewPager.getTop() + (int) event.getY()
         )) event.setAction(MotionEvent.ACTION_UP);
     }
 
     // Reset scroller to own
     private void resetScroller() {
-        if (mViewPageable == null) return;
+        if (mViewPager == null) return;
         try {
-            final Field scroller = mIsVertical ? VerticalViewPager.class.getDeclaredField("mScroller") :
-                    ViewPager.class.getDeclaredField("mScroller");
+            final Field scroller = ViewPager.class.getDeclaredField("mScroller");
             scroller.setAccessible(true);
             final InfiniteCycleScroller infiniteCycleScroller =
                     new InfiniteCycleScroller(mContext, mInterpolator);
             infiniteCycleScroller.setDuration(mScrollDuration);
-            scroller.set(mViewPageable, infiniteCycleScroller);
+            scroller.set(mViewPager, infiniteCycleScroller);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -471,7 +437,7 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
     // Reset pager when reset adapter
     public void resetPager() {
         mIsAdapterInitialPosition = true;
-        mViewPageable.setCurrentItem(0);
+        mViewPager.setCurrentItem(0);
         postInvalidateTransformer();
     }
 
@@ -508,7 +474,7 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
     protected class InfiniteCyclePageTransformer implements PageTransformer {
 
         @Override
-        public void transformPage(final View page, final float position) {
+        public void transformPage(@NonNull final View page, final float position) {
             if (mOnInfiniteCyclePageTransformListener != null)
                 mOnInfiniteCyclePageTransformListener.onPreTransform(page, position);
 
@@ -523,7 +489,7 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
                 } else page.setVisibility(VISIBLE);
             }
 
-            final float pageSize = mIsVertical ? page.getMeasuredHeight() : page.getMeasuredWidth();
+            final float pageSize = page.getMeasuredWidth();
 
             // Page offsets relative to scale
             final float pageMinScaleOffset = pageSize * mMinPageScale;
@@ -640,12 +606,10 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
             }
 
             // Scale page
-            ViewCompat.setScaleX(page, scale);
-            ViewCompat.setScaleY(page, scale);
-
+            page.setScaleX(scale);
+            page.setScaleY(scale);
             // Translate page
-            if (mIsVertical) ViewCompat.setTranslationY(page, translation);
-            else ViewCompat.setTranslationX(page, translation);
+            page.setTranslationX(translation);
 
             boolean needBringToFront = false;
             if (mItemCount == MIN_CYCLE_COUNT - 1) mIsLeftPageBringToFront = true;
@@ -669,7 +633,7 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
                         else if (position >= 0.0F && position < 0.5F) needBringToFront = true;
                             // If right was not bring we need to set it up and detect if there no bounds
                         else if (position > 0.5F && position < 1.0F && !mIsRightPageBringToFront &&
-                                mViewPageable.getChildCount() > MIN_CYCLE_COUNT)
+                                mViewPager.getChildCount() > MIN_CYCLE_COUNT)
                             needBringToFront = true;
                     } else {
                         // We move to the right and detect if position if under half of path
@@ -694,7 +658,7 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
                         else if (position > -0.5F && position <= 0.0F) needBringToFront = true;
                             // If left was not bring we need to set it up and detect if there no bounds
                         else if (position > -1.0F && position < -0.5F && !mIsLeftPageBringToFront &&
-                                mViewPageable.getChildCount() > MIN_CYCLE_COUNT)
+                                mViewPager.getChildCount() > MIN_CYCLE_COUNT)
                             needBringToFront = true;
                     } else {
                         // We move to the left and detect if position if over half of path
@@ -735,7 +699,7 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
             // Bring to front if needed
             if (needBringToFront) {
                 page.bringToFront();
-                mCastViewPageable.invalidate();
+                mViewPager.invalidate();
             }
 
             if (mOnInfiniteCyclePageTransformListener != null)
@@ -756,7 +720,7 @@ class InfiniteCycleManager implements OnNotifyDataSetChangedListener {
             if (mState != ViewPager.SCROLL_STATE_SETTLING || mIsInitialItem) {
                 // Detect first state from idle
                 if (mOuterPageScrolledState == PageScrolledState.IDLE && positionOffset > 0) {
-                    mPageScrolledPosition = mViewPageable.getCurrentItem();
+                    mPageScrolledPosition = mViewPager.getCurrentItem();
                     mOuterPageScrolledState = position == mPageScrolledPosition ?
                             PageScrolledState.GOING_LEFT : PageScrolledState.GOING_RIGHT;
                 }

@@ -13,19 +13,19 @@ class InfiniteCycleScroller extends Scroller {
 
     private int mDuration;
 
-    public InfiniteCycleScroller(final Context context) {
+    InfiniteCycleScroller(final Context context) {
         super(context);
     }
 
-    public InfiniteCycleScroller(final Context context, final Interpolator interpolator) {
+    InfiniteCycleScroller(final Context context, final Interpolator interpolator) {
         super(context, interpolator);
     }
 
-    public InfiniteCycleScroller(final Context context, final Interpolator interpolator, final boolean flywheel) {
+    InfiniteCycleScroller(final Context context, final Interpolator interpolator, final boolean flywheel) {
         super(context, interpolator, flywheel);
     }
 
-    public void setDuration(final int duration) {
+    void setDuration(final int duration) {
         mDuration = duration;
     }
 

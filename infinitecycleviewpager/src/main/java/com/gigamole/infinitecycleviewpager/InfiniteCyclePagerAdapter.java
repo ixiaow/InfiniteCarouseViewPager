@@ -2,6 +2,7 @@ package com.gigamole.infinitecycleviewpager;
 
 import android.database.DataSetObserver;
 import android.os.Parcelable;
+import android.support.annotation.NonNull;
 import android.support.v4.view.PagerAdapter;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,25 +21,25 @@ class InfiniteCyclePagerAdapter extends PagerAdapter {
     private final PagerAdapter mPagerAdapter;
     private OnNotifyDataSetChangedListener mOnNotifyDataSetChangedListener;
 
-    public InfiniteCyclePagerAdapter(final PagerAdapter pagerAdapter) {
+    InfiniteCyclePagerAdapter(final PagerAdapter pagerAdapter) {
         mPagerAdapter = pagerAdapter;
     }
 
-    public PagerAdapter getPagerAdapter() {
+    PagerAdapter getPagerAdapter() {
         return mPagerAdapter;
     }
 
-    public void setOnNotifyDataSetChangedListener(final OnNotifyDataSetChangedListener onNotifyDataSetChangedListener) {
+    void setOnNotifyDataSetChangedListener(final OnNotifyDataSetChangedListener onNotifyDataSetChangedListener) {
         mOnNotifyDataSetChangedListener = onNotifyDataSetChangedListener;
     }
 
     @Override
-    public void destroyItem(ViewGroup container, int position, Object object) {
+    public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
         mPagerAdapter.destroyItem(container, getVirtualPosition(position), object);
     }
 
     @Override
-    public void finishUpdate(ViewGroup container) {
+    public void finishUpdate(@NonNull ViewGroup container) {
         mPagerAdapter.finishUpdate(container);
     }
 
@@ -59,12 +60,13 @@ class InfiniteCyclePagerAdapter extends PagerAdapter {
     }
 
     @Override
-    public boolean isViewFromObject(View view, Object o) {
+    public boolean isViewFromObject(@NonNull View view, @NonNull Object o) {
         return mPagerAdapter.isViewFromObject(view, o);
     }
 
+    @NonNull
     @Override
-    public Object instantiateItem(ViewGroup container, int position) {
+    public Object instantiateItem(@NonNull ViewGroup container, int position) {
         return mPagerAdapter.instantiateItem(container, getVirtualPosition(position));
     }
 
@@ -79,17 +81,17 @@ class InfiniteCyclePagerAdapter extends PagerAdapter {
     }
 
     @Override
-    public void startUpdate(ViewGroup container) {
+    public void startUpdate(@NonNull ViewGroup container) {
         mPagerAdapter.startUpdate(container);
     }
 
     @Override
-    public void unregisterDataSetObserver(DataSetObserver observer) {
+    public void unregisterDataSetObserver(@NonNull DataSetObserver observer) {
         mPagerAdapter.unregisterDataSetObserver(observer);
     }
 
     @Override
-    public void registerDataSetObserver(DataSetObserver observer) {
+    public void registerDataSetObserver(@NonNull DataSetObserver observer) {
         mPagerAdapter.registerDataSetObserver(observer);
     }
 
@@ -112,7 +114,7 @@ class InfiniteCyclePagerAdapter extends PagerAdapter {
 
     // Main feature of this adapter which return virtual position
     // relative to virtual count and original count
-    protected int getVirtualPosition(final int realPosition) {
+    int getVirtualPosition(final int realPosition) {
         return realPosition % mPagerAdapter.getCount();
     }
 
